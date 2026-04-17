@@ -78,9 +78,10 @@ Notes:
 
 ## Testing
 
-- Test files are in `src/*.test.ts`
-- Test fixtures are created in `test-fixtures/` and `test-fixtures-grep/`
+- Test files are in `tests/*.test.ts`
+- Test fixtures are created in `test-fixtures/` and `test-fixtures-grep/` (auto-created/cleaned by tests)
 - Run tests: `npm run test`
+- Debug tests in VS Code: press F5 with "Debug All Tests" or "Debug Current Test File" configuration
 - Current test coverage (V3):
   - `ToolRegistry.test.ts`: unknown tool, policy denial, API filtering
   - `dispatchCommand.test.ts`: `/help`, `/clear`, `/exit`, unknown command

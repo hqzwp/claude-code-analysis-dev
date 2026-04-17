@@ -1,6 +1,6 @@
 // Test: grep tool maxResults cap
 import { describe, it, before, after } from 'node:test';
-import { createGrepTool } from './tools/grepTool.js';
+import { createGrepTool } from '../src/tools/grepTool.js';
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import assert from 'node:assert';
@@ -21,7 +21,7 @@ describe('grepTool', () => {
   });
 
   it('finds matches with pattern', async () => {
-    // Ensure directory exists (in case before didn't run)
+    // Ensure directory and file exist
     if (!existsSync(testFile)) {
       mkdirSync(testDir, { recursive: true });
       const lines = Array.from({ length: 10 }, (_, i) => `line ${i}: match`);

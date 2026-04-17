@@ -1,6 +1,6 @@
 // Test: file_read tool path escape prevention
 import { describe, it, before, after } from 'node:test';
-import { createFileReadTool } from './tools/fileReadTool.js';
+import { createFileReadTool } from '../src/tools/fileReadTool.js';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import assert from 'node:assert';
