@@ -1,0 +1,5 @@
+{
+  "anthropicBaseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+  "anthropicAuthToken": "sk-sp-71e839ad11ee4c9d977d3849110ee13a",
+  "model": "qwen3.5-plus"
+}
