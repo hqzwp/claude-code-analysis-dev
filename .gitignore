@@ -19,3 +19,6 @@ npm-debug.log*
 # IDE
 .vscode/
 .idea/
+
+# Claude metadata
+.claude/memory/

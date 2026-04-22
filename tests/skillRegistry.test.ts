@@ -44,22 +44,28 @@ describe('skill loader', () => {
   before(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mini-claude-skills-'));
     await fs.writeFile(
-      path.join(tempDir, 'alpha.json'),
-      JSON.stringify({
-        name: 'alpha',
-        description: 'Alpha skill',
-        usage: '/skill alpha',
-        promptTemplate: 'Alpha {{args}}',
-      }),
+      path.join(tempDir, 'alpha.md'),
+      [
+        '---',
+        'name: alpha',
+        'description: Alpha skill',
+        'usage: /skill alpha',
+        '---',
+        '',
+        'Alpha {{args}}',
+      ].join('\n'),
       'utf8'
     );
     await fs.writeFile(
-      path.join(tempDir, 'beta.json'),
-      JSON.stringify({
-        name: 'beta',
-        description: 'Beta skill',
-        promptTemplate: 'Beta {{target}}',
-      }),
+      path.join(tempDir, 'beta.md'),
+      [
+        '---',
+        'name: beta',
+        'description: Beta skill',
+        '---',
+        '',
+        'Beta {{target}}',
+      ].join('\n'),
       'utf8'
     );
   });
@@ -68,7 +74,7 @@ describe('skill loader', () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it('loads json skill files', () => {
+  it('loads markdown skill files', () => {
     const skills = loadFileSkillDefinitions(tempDir);
     assert.strictEqual(skills.length, 2);
     assert.deepStrictEqual(skills.map((skill) => skill.name), ['alpha', 'beta']);
@@ -76,12 +82,15 @@ describe('skill loader', () => {
 
   it('rejects duplicate skill names', async () => {
     await fs.writeFile(
-      path.join(tempDir, 'gamma.json'),
-      JSON.stringify({
-        name: 'alpha',
-        description: 'Duplicate alpha',
-        promptTemplate: 'Duplicate',
-      }),
+      path.join(tempDir, 'gamma.md'),
+      [
+        '---',
+        'name: alpha',
+        'description: Duplicate alpha',
+        '---',
+        '',
+        'Duplicate',
+      ].join('\n'),
       'utf8'
     );
 

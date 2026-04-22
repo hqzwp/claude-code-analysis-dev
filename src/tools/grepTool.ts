@@ -46,7 +46,15 @@ async function walkFiles(
   directory: string,
   onFile: (filePath: string) => Promise<boolean>,
 ): Promise<boolean> {
-  const entries = await fs.readdir(directory, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
 
   for (const entry of entries) {
     const fullPath = path.join(directory, entry.name);
@@ -107,12 +115,30 @@ export function createGrepTool(): ToolDefinition {
       const results: string[] = [];
 
       await walkFiles(root, async (filePath) => {
-        const stat = await fs.stat(filePath);
+        let stat;
+        try {
+          stat = await fs.stat(filePath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return false;
+          }
+          throw error;
+        }
+
         if (stat.size > MAX_FILE_BYTES) {
           return false;
         }
 
-        const source = await fs.readFile(filePath, 'utf8');
+        let source;
+        try {
+          source = await fs.readFile(filePath, 'utf8');
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return false;
+          }
+          throw error;
+        }
+
         if (isLikelyBinary(source)) {
           return false;
         }
