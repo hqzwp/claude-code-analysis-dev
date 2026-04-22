@@ -23,39 +23,8 @@ function App(): React.JSX.Element {
   // Command context for dispatcher
   const commandContext: CommandContext = { exit };
 
-  const handleSubmit = async (input: string): Promise<void> => {
-    const trimmed = input.trim();
-    if (trimmed.length === 0 || isStreaming) {
-      setInputBuffer('');
-      return;
-    }
-
-    // Try command dispatch first
-    const cmdResult = dispatchCommand(trimmed, commandContext);
-    if (cmdResult.kind === 'append_assistant') {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'user', text: trimmed },
-        { role: 'assistant', text: cmdResult.text },
-      ]);
-      setInputBuffer('');
-      return;
-    }
-    if (cmdResult.kind === 'reset_messages') {
-      setMessages([
-        { role: 'system', text: SYSTEM_PROMPT },
-        { role: 'assistant', text: WELCOME_TEXT },
-      ]);
-      setInputBuffer('');
-      return;
-    }
-    if (cmdResult.kind === 'exit') {
-      exit();
-      return;
-    }
-
-    // Not a command - proceed with LLM query
-    const userMessage: ChatMessage = { role: 'user', text: trimmed };
+  const streamPrompt = async (prompt: string): Promise<void> => {
+    const userMessage: ChatMessage = { role: 'user', text: prompt };
     const historyForQuery = [...messages, userMessage];
     let assistantText = '';
 
@@ -87,6 +56,45 @@ function App(): React.JSX.Element {
     } finally {
       setIsStreaming(false);
     }
+  };
+
+  const handleSubmit = async (input: string): Promise<void> => {
+    const trimmed = input.trim();
+    if (trimmed.length === 0 || isStreaming) {
+      setInputBuffer('');
+      return;
+    }
+
+    // Try command dispatch first
+    const cmdResult = dispatchCommand(trimmed, commandContext);
+    if (cmdResult.kind === 'append_assistant') {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', text: trimmed },
+        { role: 'assistant', text: cmdResult.text },
+      ]);
+      setInputBuffer('');
+      return;
+    }
+    if (cmdResult.kind === 'submit_prompt') {
+      await streamPrompt(cmdResult.text);
+      return;
+    }
+    if (cmdResult.kind === 'reset_messages') {
+      setMessages([
+        { role: 'system', text: SYSTEM_PROMPT },
+        { role: 'assistant', text: WELCOME_TEXT },
+      ]);
+      setInputBuffer('');
+      return;
+    }
+    if (cmdResult.kind === 'exit') {
+      exit();
+      return;
+    }
+
+    // Not a command - proceed with LLM query
+    await streamPrompt(trimmed);
   };
 
   useInput((input, key) => {

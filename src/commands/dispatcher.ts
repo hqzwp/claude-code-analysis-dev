@@ -19,6 +19,7 @@ export function dispatchCommand(
   // Extract command name (first token after /)
   const parts = trimmed.slice(1).split(/\s+/);
   const cmdName = parts[0].toLowerCase();
+  const args = parts.slice(1);
 
   const handler = builtins[cmdName];
   if (!handler) {
@@ -28,5 +29,5 @@ export function dispatchCommand(
     };
   }
 
-  return handler(ctx);
+  return handler(ctx, args);
 }

@@ -16,6 +16,7 @@ describe('dispatchCommand', () => {
     assert.strictEqual(result.kind, 'append_assistant');
     if (result.kind === 'append_assistant') {
       assert.ok(result.text.toLowerCase().includes('command'), 'should mention commands');
+      assert.ok(result.text.includes('/skills'), 'should mention skills command');
     }
   });
 
@@ -27,6 +28,40 @@ describe('dispatchCommand', () => {
   it('handles /exit command', () => {
     const result = dispatchCommand('/exit', ctx);
     assert.strictEqual(result.kind, 'exit');
+  });
+
+  it('lists skills with /skills', () => {
+    const result = dispatchCommand('/skills', ctx);
+    assert.strictEqual(result.kind, 'append_assistant');
+    if (result.kind === 'append_assistant') {
+      assert.ok(result.text.includes('[builtin]'), 'should label builtin skills');
+      assert.ok(result.text.includes('[file]'), 'should label file skills');
+    }
+  });
+
+  it('builds a skill prompt with /skill', () => {
+    const result = dispatchCommand('/skill explain-code src/index.tsx', ctx);
+    assert.strictEqual(result.kind, 'submit_prompt');
+    if (result.kind === 'submit_prompt') {
+      assert.ok(result.text.includes('Explain this code clearly and concisely'), 'should build skill prompt');
+      assert.ok(result.text.includes('src/index.tsx'), 'should include target path');
+    }
+  });
+
+  it('returns usage for /skill without a name', () => {
+    const result = dispatchCommand('/skill', ctx);
+    assert.strictEqual(result.kind, 'append_assistant');
+    if (result.kind === 'append_assistant') {
+      assert.ok(result.text.includes('Usage: /skill <name> [args...]'), 'should show usage');
+    }
+  });
+
+  it('returns error for unknown skill', () => {
+    const result = dispatchCommand('/skill unknown', ctx);
+    assert.strictEqual(result.kind, 'append_assistant');
+    if (result.kind === 'append_assistant') {
+      assert.ok(result.text.includes('Unknown skill'), 'should mention unknown skill');
+    }
   });
 
   it('returns error for unknown command', () => {
