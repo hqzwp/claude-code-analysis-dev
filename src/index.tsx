@@ -3,6 +3,7 @@ import { Box, Text, render, useApp, useInput } from 'ink';
 import { getDefaultLogPath, logDebug } from './log.js';
 import { DEFAULT_MODEL, submitMessage, type ChatMessage } from './query.js';
 import { dispatchCommand, type CommandContext } from './commands/index.js';
+import { routeInputToSkillPrompt } from './skills/index.js';
 
 const SYSTEM_PROMPT =
   'You are a concise coding assistant in a terminal CLI. Give short, practical answers.';
@@ -65,7 +66,6 @@ function App(): React.JSX.Element {
       return;
     }
 
-    // Try command dispatch first
     const cmdResult = dispatchCommand(trimmed, commandContext);
     if (cmdResult.kind === 'append_assistant') {
       setMessages((prev) => [
@@ -93,7 +93,12 @@ function App(): React.JSX.Element {
       return;
     }
 
-    // Not a command - proceed with LLM query
+    const routedPrompt = routeInputToSkillPrompt(trimmed);
+    if (routedPrompt) {
+      await streamPrompt(routedPrompt);
+      return;
+    }
+
     await streamPrompt(trimmed);
   };
 
