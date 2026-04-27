@@ -31,7 +31,7 @@ export const builtins: Record<string, CommandHandler> = {
    * /skills - list available skills
    */
   skills: (_ctx, args) => {
-    if (args[0] === 'route') {
+    if (args[0] === 'route') {//根据输入 路由到对应的skill 
       const input = args.slice(1).join(' ').trim();
       if (!input) {
         return {
