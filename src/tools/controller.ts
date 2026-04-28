@@ -15,27 +15,47 @@ export type ToolExecutionController = {
 
 export function createToolExecutionController(
   registry: ToolRegistry,
-  emit: (event: TurnEvent) => void,
+  emit?: (event: TurnEvent) => void,
 ): ToolExecutionController {
   return {
     getToolDefinitionsForApi: () => registry.getToolDefinitionsForApi(),
     executeTool: async ({ toolName, toolUseId, input }) => {
-      const allowed = registry.isToolAllowed(toolName);
-      emit({ kind: 'tool_policy_checked', toolName, toolUseId, input, allowed });
+      const allowed = registry.listToolNames().includes(toolName) && registry.isToolAllowed(toolName);
+
+      const policyEvent: TurnEvent = {
+        kind: 'tool_policy_checked',
+        toolName,
+        toolUseId,
+        input,
+        allowed,
+      };
+      emit?.(policyEvent);
 
       if (!allowed) {
         const result = {
           isError: true,
           content: `Tool ${toolName} is not permitted by policy.`,
         };
-        emit({ kind: 'tool_execution_denied', toolName, toolUseId, input, result });
+        emit?.({
+          kind: 'tool_execution_denied',
+          toolName,
+          toolUseId,
+          input,
+          result,
+        });
         return result;
       }
 
-      emit({ kind: 'tool_execution_started', toolName, toolUseId, input });
+      emit?.({
+        kind: 'tool_execution_started',
+        toolName,
+        toolUseId,
+        input,
+      });
 
       const result = await registry.executeTool(toolName, input);
-      emit({
+
+      emit?.({
         kind: result.isError ? 'tool_execution_failed' : 'tool_execution_finished',
         toolName,
         toolUseId,

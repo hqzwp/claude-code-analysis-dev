@@ -106,7 +106,7 @@ export async function* submitMessage(history: ChatMessage[], options?: SubmitMes
   const authClientConfigs = buildAuthClientConfigs(apiKey, authToken);
   const systemPrompt = history.find((message) => message.role === 'system')?.text;
   const emit = options?.emit ?? (() => {});
-  const toolController = createToolExecutionController(toolRegistry, emit);
+  const toolController = createToolExecutionController(toolRegistry, options?.emit);
   const tools = options?.enableTools ?? true ? toolController.getToolDefinitionsForApi() : [];
 
   const requestMessage = async (
