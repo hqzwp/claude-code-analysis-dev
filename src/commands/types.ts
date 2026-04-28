@@ -32,4 +32,4 @@ export type CommandResult =
 /**
  * Built-in command handler signature
  */
-export type CommandHandler = (ctx: CommandContext, args: string[]) => CommandResult;
+export type CommandHandler = (ctx: CommandContext, args: string[]) => CommandResult | Promise<CommandResult>;

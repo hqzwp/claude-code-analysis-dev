@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { buildSkillPrompt, listSkills } from '../src/skills/index.js';
+import { buildSkillPrompt, executeSkill, listSkills } from '../src/skills/index.js';
 import { loadFileSkillDefinitions } from '../src/skills/loader.js';
 import { renderSkillTemplate } from '../src/skills/template.js';
 
@@ -22,6 +22,11 @@ describe('skill registry', () => {
     assert.ok(prompt?.includes('Explain this code clearly and concisely'), 'should use explain template');
   });
 
+  it('executes builtin executable skills', async () => {
+    const output = await executeSkill('plan-agent-work', ['orchestrate', 'two', 'agents']);
+    assert.ok(output?.includes('orchestrate two agents'), 'should execute builtin skill');
+  });
+
   it('builds prompt for file skill', () => {
     const prompt = buildSkillPrompt('file-explain', ['src/query.ts']);
     assert.ok(prompt?.includes('src/query.ts'), 'should render template args');
@@ -32,9 +37,10 @@ describe('skill registry', () => {
     assert.strictEqual(renderSkillTemplate('Target: {{target}}', ['src/app.ts']), 'Target: src/app.ts');
   });
 
-  it('returns null for unknown skill', () => {
+  it('returns null for unknown skill', async () => {
     const prompt = buildSkillPrompt('unknown', []);
     assert.strictEqual(prompt, null);
+    assert.strictEqual(await executeSkill('unknown', []), null);
   });
 });
 

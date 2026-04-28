@@ -8,6 +8,12 @@ export type TurnToolResult = {
   isError?: boolean;
 };
 
+export type TurnToolExecutionContext = {
+  toolName: string;
+  toolUseId: string;
+  input: unknown;
+};
+
 export type RunTurnLoopDeps = {
   history: ChatMessage[];
   model: string;
@@ -19,7 +25,7 @@ export type RunTurnLoopDeps = {
   systemPrompt?: string;
   baseURL?: string;
   requestMessage: (loop: number, payload: Anthropic.MessageCreateParamsNonStreaming) => Promise<Anthropic.Message>;
-  executeTool: (name: string, input: unknown) => Promise<TurnToolResult>;
+  executeTool: (context: TurnToolExecutionContext) => Promise<TurnToolResult>;
   emit: (event: TurnEvent) => void;
 };
 
@@ -80,7 +86,11 @@ export async function* runTurnLoop(deps: RunTurnLoopDeps): AsyncGenerator<string
 
       const toolResults = [] as Anthropic.ToolResultBlockParam[];
       for (const toolUse of toolUses) {
-        const result = await deps.executeTool(toolUse.name, toolUse.input);
+        const result = await deps.executeTool({
+          toolName: toolUse.name,
+          toolUseId: toolUse.id,
+          input: toolUse.input,
+        });
         deps.emit({
           kind: 'tool_execution',
           toolName: toolUse.name,

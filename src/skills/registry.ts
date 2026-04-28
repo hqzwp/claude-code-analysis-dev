@@ -1,4 +1,4 @@
-import type { SkillDefinition, SkillFileDefinition } from './types.js';
+import type { SkillDefinition, SkillExecutionContext, SkillFileDefinition } from './types.js';
 import { loadFileSkillDefinitions } from './loader.js';
 import { renderSkillTemplate } from './template.js';
 
@@ -54,6 +54,23 @@ const builtinSkills: SkillDefinition[] = [
         : 'Draft a minimal refactor plan for the current area.';
     },
   },
+  {
+    name: 'plan-agent-work',
+    description: 'Create a small multi-agent plan',
+    usage: '/skill plan-agent-work <goal>',
+    source: 'builtin',
+    aliases: ['agent-plan', 'orchestrate'],
+    tags: ['agent', 'orchestration'],
+    triggers: ['plan agent work', 'orchestrate agents', 'split work across agents'],
+    routePriority: 2,
+    buildPrompt: (args) => {
+      const target = args.join(' ').trim();
+      return target
+        ? `Plan a small multi-agent execution for: ${target}`
+        : 'Plan a small multi-agent execution for the current goal.';
+    },
+    execute: ({ input }: SkillExecutionContext) => `Planned executable skill flow for: ${input}`,
+  },
 ];
 
 function toFileSkill(definition: SkillFileDefinition): SkillDefinition {
@@ -81,4 +98,13 @@ export function buildSkillPrompt(name: string, args: string[]): string | null {
     return null;
   }
   return skill.buildPrompt(args);
+}
+
+export async function executeSkill(name: string, args: string[]): Promise<string | null> {
+  const skill = skills.find((entry) => entry.name === name);
+  if (!skill?.execute) {
+    return null;
+  }
+
+  return skill.execute({ args, input: args.join(' ').trim() });
 }

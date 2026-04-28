@@ -7,8 +7,8 @@ import type { CommandResult, CommandContext } from './types.js';
  */
 export function dispatchCommand(
   input: string,
-  ctx: CommandContext
-): CommandResult {
+  ctx: CommandContext,
+): CommandResult | Promise<CommandResult> {
   const trimmed = input.trim();
 
   // Must start with /

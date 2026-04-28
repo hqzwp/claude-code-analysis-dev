@@ -8,12 +8,18 @@ export type SkillMetadata = {
   routePriority?: number;
 };
 
+export type SkillExecutionContext = {
+  args: string[];
+  input: string;
+};
+
 export type SkillDefinition = SkillMetadata & {
   name: string;
   description: string;
   usage?: string;
   source: SkillSource;
   buildPrompt: (args: string[]) => string;
+  execute?: (context: SkillExecutionContext) => Promise<string> | string;
 };
 
 export type SkillFileDefinition = SkillMetadata & {

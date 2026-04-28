@@ -19,4 +19,12 @@ describe('dispatchCommand', () => {
       assert.ok(result.text.includes('/skills route <text>'), 'should mention skills route command');
     }
   });
+
+  it('handles async /skill command handlers', async () => {
+    const result = await dispatchCommand('/skill plan-agent-work orchestrate two agents', ctx);
+    assert.strictEqual(result.kind, 'append_assistant');
+    if (result.kind === 'append_assistant') {
+      assert.ok(result.text.includes('orchestrate two agents'), 'should execute executable skill');
+    }
+  });
 });

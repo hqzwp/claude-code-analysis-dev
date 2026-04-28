@@ -17,10 +17,14 @@ export class ToolRegistry {
     this.tools.set(tool.name, tool);
   }
 
+  isToolAllowed(name: string): boolean {
+    return !this.canUseTool || this.canUseTool(name);
+  }
+
   getToolDefinitionsForApi(): ApiToolDefinition[] {
     // Filter by permission policy if available
     return Array.from(this.tools.values())
-      .filter(tool => !this.canUseTool || this.canUseTool(tool.name))
+      .filter(tool => this.isToolAllowed(tool.name))
       .map((tool) => ({
         name: tool.name,
         description: tool.description,
@@ -30,7 +34,7 @@ export class ToolRegistry {
 
   async executeTool(name: string, input: unknown): Promise<ToolCallResult> {
     // Permission check before execution
-    if (this.canUseTool && !this.canUseTool(name)) {
+    if (!this.isToolAllowed(name)) {
       return {
         isError: true,
         content: `Tool ${name} is not permitted by policy.`,

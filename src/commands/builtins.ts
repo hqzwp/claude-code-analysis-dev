@@ -1,5 +1,5 @@
 import type { CommandHandler } from './types.js';
-import { listSkills, buildSkillPrompt, evaluateSkillRouting, formatSkillRouteAnalysis } from '../skills/index.js';
+import { listSkills, buildSkillPrompt, executeSkill, evaluateSkillRouting, formatSkillRouteAnalysis } from '../skills/index.js';
 
 /**
  * Built-in slash commands
@@ -31,7 +31,7 @@ export const builtins: Record<string, CommandHandler> = {
    * /skills - list available skills
    */
   skills: (_ctx, args) => {
-    if (args[0] === 'route') {//根据输入 路由到对应的skill 
+    if (args[0] === 'route') {//根据输入 路由到对应的skill
       const input = args.slice(1).join(' ').trim();
       if (!input) {
         return {
@@ -71,12 +71,20 @@ export const builtins: Record<string, CommandHandler> = {
   /**
    * /skill <name> [args...] - build a prompt from a skill
    */
-  skill: (_ctx, args) => {
+  skill: async (_ctx, args) => {
     const [name, ...skillArgs] = args;
     if (!name) {
       return {
         kind: 'append_assistant',
         text: 'Usage: /skill <name> [args...]',
+      };
+    }
+
+    const executed = await executeSkill(name, skillArgs);
+    if (executed) {
+      return {
+        kind: 'append_assistant',
+        text: executed,
       };
     }
 
