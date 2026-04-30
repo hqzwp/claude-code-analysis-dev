@@ -40,6 +40,20 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function safeBackupCorruptFile(filePath: string, raw: string): void {
+  try {
+    const dir = path.dirname(filePath);
+    const ext = path.extname(filePath) || '.json';
+    const base = path.basename(filePath, ext);
+    const stamp = now().replace(/[:.]/g, '-');
+    const backupPath = path.join(dir, `${base}.corrupt-${stamp}${ext}`);
+    fs.writeFileSync(backupPath, raw, 'utf8');
+    fs.renameSync(filePath, path.join(dir, `${base}.corrupt-latest${ext}`));
+  } catch {
+    // Best-effort backup only.
+  }
+}
+
 function createSessionId(): string {
   return `session-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
 }
@@ -55,11 +69,16 @@ function readSessionFile(sessionId: string, rootDir?: string): SessionHistory | 
     return null;
   }
 
-  const parsed = JSON.parse(raw) as SessionHistory;
-  return {
-    meta: parsed.meta,
-    messages: Array.isArray(parsed.messages) ? parsed.messages : [],
-  };
+  try {
+    const parsed = JSON.parse(raw) as SessionHistory;
+    return {
+      meta: parsed.meta,
+      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+    };
+  } catch {
+    safeBackupCorruptFile(filePath, raw);
+    return null;
+  }
 }
 
 function writeSessionFile(session: SessionHistory, rootDir?: string): void {
@@ -152,7 +171,13 @@ export function loadCurrentSession(options: HistoryStoreOptions = {}): SessionHi
     return null;
   }
 
-  const current = JSON.parse(raw) as CurrentSessionRecord;
+  let current: CurrentSessionRecord;
+  try {
+    current = JSON.parse(raw) as CurrentSessionRecord;
+  } catch {
+    safeBackupCorruptFile(currentPath, raw);
+    return null;
+  }
   if (!current.sessionId) {
     return null;
   }
