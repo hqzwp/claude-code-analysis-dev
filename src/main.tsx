@@ -72,7 +72,9 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     return runtime.events.subscribe((event) => {
-      runtime.store.setDebugEvents((prev) => [...prev.slice(-7), formatEvent(event)]);
+      runtime.store.setDebugEvents((prev) => {
+        return [...prev.slice(-7), formatEvent(event)];
+      });
     });
   }, [runtime]);
 
