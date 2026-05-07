@@ -7,6 +7,7 @@ export type AppState = {
   inputBuffer: string;
   isStreaming: boolean;
   lastError: string | null;
+  debugEvents: string[];
 };
 
 export type AppStateStore = {
@@ -17,6 +18,7 @@ export type AppStateStore = {
   setInputBuffer: (inputBuffer: string) => void;
   setIsStreaming: (isStreaming: boolean) => void;
   setLastError: (lastError: string | null) => void;
+  setDebugEvents: (updater: (prev: string[]) => string[]) => void;
 };
 
 function emit(listeners: Set<() => void>): void {
@@ -32,6 +34,7 @@ export function createAppStateStore(initialSession: SessionHistory): AppStateSto
     inputBuffer: '',
     isStreaming: false,
     lastError: null,
+    debugEvents: [],
   };
   const listeners = new Set<() => void>();
 
@@ -55,6 +58,7 @@ export function createAppStateStore(initialSession: SessionHistory): AppStateSto
         inputBuffer: '',
         isStreaming: false,
         lastError: null,
+        debugEvents: [],
       });
     },
     setMessages: (messages: ChatMessage[]) => {
@@ -79,6 +83,12 @@ export function createAppStateStore(initialSession: SessionHistory): AppStateSto
       update({
         ...state,
         lastError,
+      });
+    },
+    setDebugEvents: (updater: (prev: string[]) => string[]) => {
+      update({
+        ...state,
+        debugEvents: updater(state.debugEvents),
       });
     },
   };

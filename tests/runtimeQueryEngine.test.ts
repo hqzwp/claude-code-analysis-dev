@@ -5,7 +5,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createSession } from '../src/history/index.js';
 import { writeMemory } from '../src/memory/index.js';
-import { QueryEngine } from '../src/runtime/QueryEngine.js';
+import { QueryEngine, createRuntimeEventBus } from '../src/runtime/QueryEngine.js';
 import { createAppStateStore } from '../src/state/AppStateStore.js';
 
 function createTempRoot(): string {
@@ -126,5 +126,51 @@ describe('QueryEngine', () => {
     assert.match(requestSystemText, /Alpha memory/);
     assert.match(requestSystemText, /Beta memory/);
     assert.ok(!requestSystemText.includes('Gamma memory'));
+  });
+
+  it('publishes runtime events to subscribers', async () => {
+    const rootDir = createTempRoot();
+    const initialMessages = [{ role: 'system', text: 'system prompt' }] as const;
+    const session = createSession({ rootDir, messages: [...initialMessages] });
+    const store = createAppStateStore(session);
+    const events: string[] = [];
+    const bus = createRuntimeEventBus();
+
+    const engine = new QueryEngine({
+      store,
+      exit: () => {},
+      initialMessages: [...initialMessages],
+      rootDir,
+      eventBus: bus,
+      submitMessageImpl: async function* () {
+        yield 'ok';
+      },
+      dispatchCommandImpl: () => ({ kind: 'not_command' }),
+      evaluateSkillRoutingImpl: (input) => ({
+        input,
+        normalizedInput: input.trim(),
+        routed: false,
+        score: 0,
+        confidence: 0,
+        reason: 'fallback',
+        candidates: [],
+        selected: null,
+      }),
+      formatSkillRouteAnalysisImpl: () => 'fallback',
+      logDebugImpl: () => {},
+    });
+
+    const unsubscribe = bus.subscribe((event) => {
+      events.push(event.kind);
+    });
+
+    await engine.submitInput('hello');
+    unsubscribe();
+
+    assert.ok(events.includes('input_received'));
+    assert.ok(events.includes('command_result'));
+    assert.ok(events.includes('prompt_submitted'));
+    assert.ok(events.includes('turn_started'));
+    assert.ok(events.includes('turn_finished'));
   });
 });

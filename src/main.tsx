@@ -1,11 +1,11 @@
-import React, { useMemo, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Box, Text, render, useApp, useInput } from 'ink';
 import { getDefaultLogPath, logDebug } from './log.js';
 import { DEFAULT_MODEL } from './query.js';
 import { readRuntimeConfig } from './querylib/auth.js';
 import { dispatchCommand } from './commands/index.js';
 import { evaluateSkillRouting, formatSkillRouteAnalysis } from './skills/index.js';
-import { createQueryRuntime } from './runtime/QueryEngine.js';
+import { createQueryRuntime, type RuntimeEvent } from './runtime/QueryEngine.js';
 import type { ChatMessage } from './query.js';
 
 const SYSTEM_PROMPT =
@@ -17,10 +17,42 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   { role: 'assistant', text: WELCOME_TEXT },
 ];
 
+function formatEvent(event: RuntimeEvent): string {
+  switch (event.kind) {
+    case 'input_received':
+      return `input: ${event.trimmed || '(blank)'}`;
+    case 'conversation_ignored':
+      return `ignored: ${event.reason}`;
+    case 'command_result':
+      return `command: ${event.result}`;
+    case 'skill_route_evaluated':
+      return event.routed ? `skill: routed -> ${event.prompt ?? ''}` : 'skill: no route';
+    case 'prompt_submitted':
+      return `prompt: ${event.source}`;
+    case 'turn_started':
+      return 'turn: started';
+    case 'turn_event':
+      return `turn_event: ${event.event.kind}`;
+    case 'turn_finished':
+      return 'turn: finished';
+    case 'turn_failed':
+      return `turn: failed (${event.error})`;
+    case 'assistant_reply_appended':
+      return 'reply: appended';
+    case 'conversation_reset':
+      return `reset: ${event.sessionId}`;
+    default: {
+      const neverEvent: never = event;
+      return neverEvent;
+    }
+  }
+}
+
 function App(): React.JSX.Element {
   const { exit } = useApp();
   const configuredModel = useMemo(() => readRuntimeConfig().model ?? null, []);
-  const runtime = useMemo( () =>
+  const runtime = useMemo(
+    () =>
       createQueryRuntime({
         exit,
         initialMessages: INITIAL_MESSAGES,
@@ -37,6 +69,12 @@ function App(): React.JSX.Element {
     runtime.store.getSnapshot,
     runtime.store.getSnapshot,
   );
+
+  useEffect(() => {
+    return runtime.events.subscribe((event) => {
+      runtime.store.setDebugEvents((prev) => [...prev.slice(-7), formatEvent(event)]);
+    });
+  }, [runtime]);
 
   useInput((input, key) => {
     logDebug(`input=${JSON.stringify(input)} key=${JSON.stringify(key)} streaming=${state.isStreaming}`);
@@ -102,9 +140,22 @@ function App(): React.JSX.Element {
         })}
       </Box>
 
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="column">
         <Text color="magenta">&gt; </Text>
         <Text>{state.inputBuffer}</Text>
+      </Box>
+
+      <Box marginTop={1} flexDirection="column">
+        <Text dimColor>Events:</Text>
+        {state.debugEvents.length > 0 ? (
+          state.debugEvents.map((event, index) => (
+            <Text key={`${event}-${index}`} dimColor>
+              - {event}
+            </Text>
+          ))
+        ) : (
+          <Text dimColor>- (none)</Text>
+        )}
       </Box>
 
       <Text dimColor>

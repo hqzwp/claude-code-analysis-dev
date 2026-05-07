@@ -131,7 +131,7 @@ function injectMemoryContext(messages: ChatMessage[], memoryContext: string): Ch
 }
 
 //从 QueryEngineDeps 这个对象类型里，移除 store 字段。也就是拿到一个“不包含 store”的 deps 类型
-// 然后用一个对象类型 & { store?: AppStateStore } 来表示“可以包含 store”的 deps 类型
+// 然后用一个对象类型 & { store?: AppStateStore } 来表示“可以包含 可选的 store”的 deps 类型
 export function createQueryRuntime(deps: Omit<QueryEngineDeps, 'store'> & { store?: AppStateStore }): QueryRuntime {
   const events = deps.eventBus ?? createRuntimeEventBus();
   const initialSession = createOrLoadCurrentSession({
@@ -151,6 +151,13 @@ export function createQueryRuntime(deps: Omit<QueryEngineDeps, 'store'> & { stor
 
   return { store, engine, events };
 }
+
+type InputActionResult =
+  | { kind: 'ignored'; reason: 'empty' | 'streaming' }
+  | { kind: 'append_assistant'; text: string }
+  | { kind: 'submit_prompt'; prompt: string; source: 'command' | 'skill' | 'raw' }
+  | { kind: 'reset_messages' }
+  | { kind: 'exit' };
 
 export class QueryEngine {
   private readonly store: AppStateStore;
@@ -183,16 +190,42 @@ export class QueryEngine {
 
     this.publish({ kind: 'input_received', input, trimmed });
 
-    if (trimmed.length === 0) {
-      this.publish({ kind: 'conversation_ignored', input, reason: 'empty' });
+    const action = await this.processInput(trimmed, state.isStreaming);
+
+    if (action.kind === 'ignored') {
+      this.publish({ kind: 'conversation_ignored', input, reason: action.reason });
       this.store.setInputBuffer('');
       return;
     }
 
-    if (state.isStreaming) {
-      this.publish({ kind: 'conversation_ignored', input, reason: 'streaming' });
-      this.store.setInputBuffer('');
+    if (action.kind === 'append_assistant') {
+      await this.appendAssistantReply(trimmed, action.text);
       return;
+    }
+
+    if (action.kind === 'submit_prompt') {
+      this.publish({ kind: 'prompt_submitted', prompt: action.prompt, source: action.source });
+      await this.streamPrompt(action.prompt);
+      return;
+    }
+
+    if (action.kind === 'reset_messages') {
+      this.resetConversation();
+      return;
+    }
+
+    if (action.kind === 'exit') {
+      this.exit();
+    }
+  }
+
+  private async processInput(trimmed: string, isStreaming: boolean): Promise<InputActionResult> {
+    if (trimmed.length === 0) {
+      return { kind: 'ignored', reason: 'empty' };
+    }
+
+    if (isStreaming) {
+      return { kind: 'ignored', reason: 'streaming' };
     }
 
     const commandContext: CommandContext = { exit: this.exit };
@@ -200,24 +233,19 @@ export class QueryEngine {
     this.publish({ kind: 'command_result', input: trimmed, result: cmdResult.kind });
 
     if (cmdResult.kind === 'append_assistant') {
-      await this.appendAssistantReply(trimmed, cmdResult.text);
-      return;
+      return { kind: 'append_assistant', text: cmdResult.text };
     }
 
     if (cmdResult.kind === 'submit_prompt') {
-      this.publish({ kind: 'prompt_submitted', prompt: cmdResult.text, source: 'command' });
-      await this.streamPrompt(cmdResult.text);
-      return;
+      return { kind: 'submit_prompt', prompt: cmdResult.text, source: 'command' };
     }
 
     if (cmdResult.kind === 'reset_messages') {
-      this.resetConversation();
-      return;
+      return { kind: 'reset_messages' };
     }
 
     if (cmdResult.kind === 'exit') {
-      this.exit();
-      return;
+      return { kind: 'exit' };
     }
 
     const routeDecision = this.evaluateSkillRoutingFn(trimmed);
@@ -229,13 +257,10 @@ export class QueryEngine {
     });
     this.logDebugFn(this.formatSkillRouteAnalysisFn(routeDecision));
     if (routeDecision.routed && routeDecision.prompt) {
-      this.publish({ kind: 'prompt_submitted', prompt: routeDecision.prompt, source: 'skill' });
-      await this.streamPrompt(routeDecision.prompt);
-      return;
+      return { kind: 'submit_prompt', prompt: routeDecision.prompt, source: 'skill' };
     }
 
-    this.publish({ kind: 'prompt_submitted', prompt: trimmed, source: 'raw' });
-    await this.streamPrompt(trimmed);
+    return { kind: 'submit_prompt', prompt: trimmed, source: 'raw' };
   }
 
   private publish(event: RuntimeEvent): void {
@@ -258,6 +283,7 @@ export class QueryEngine {
       this.store.setLastError(errorMessage);
     }
   }
+
 
   private async appendAssistantReply(userText: string, assistantText: string): Promise<void> {
     const state = this.store.getSnapshot();
