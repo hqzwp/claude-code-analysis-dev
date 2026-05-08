@@ -10,6 +10,8 @@ export type ToolDefinition = {
   description: string;
   inputSchema: Anthropic.Tool.InputSchema;
   execute: (input: unknown) => Promise<ToolCallResult>;
+  mcpToolName?: string;
+  mcpSourceIndex?: number;
 };
 //API工具定义
 export type ApiToolDefinition = Anthropic.Tool;

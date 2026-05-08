@@ -1,6 +1,30 @@
 import type { ApiToolDefinition, ToolCallResult, ToolDefinition } from './types.js';
 import type { CanUseTool } from '../permissions/index.js';
 
+export type ToolAccessDecision =
+  | { allowed: true; reason: null }
+  | { allowed: false; reason: 'unknown_tool' | 'policy_denied'; content: string };
+
+export function resolveToolAccess(registry: ToolRegistry, toolName: string): ToolAccessDecision {
+  if (!registry.hasTool(toolName)) {
+    return {
+      allowed: false,
+      reason: 'unknown_tool',
+      content: `Unknown tool: ${toolName}`,
+    };
+  }
+
+  if (!registry.isToolAllowed(toolName)) {
+    return {
+      allowed: false,
+      reason: 'policy_denied',
+      content: `Tool ${toolName} is not permitted by policy.`,
+    };
+  }
+
+  return { allowed: true, reason: null };
+}
+
 // 工具注册表
 export class ToolRegistry {
   private readonly tools = new Map<string, ToolDefinition>();
@@ -37,19 +61,18 @@ export class ToolRegistry {
   }
 
   async executeTool(name: string, input: unknown): Promise<ToolCallResult> {
-    // Permission check before execution
-    if (!this.isToolAllowed(name)) {
-      return {
-        isError: true,
-        content: `Tool ${name} is not permitted by policy.`,
-      };
-    }
-
     const tool = this.tools.get(name);
     if (!tool) {
       return {
         isError: true,
         content: `Unknown tool: ${name}`,
+      };
+    }
+
+    if (!this.isToolAllowed(name)) {
+      return {
+        isError: true,
+        content: `Tool ${name} is not permitted by policy.`,
       };
     }
 

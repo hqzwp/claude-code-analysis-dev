@@ -14,7 +14,14 @@ describe('ToolRegistry', () => {
   it('returns error when tool is denied by policy', async () => {
     // Create a policy that denies all tools
     const canUseTool = (name: string) => false;
-    const registry = new ToolRegistry([], canUseTool);
+    const registry = new ToolRegistry([
+      {
+        name: 'any_tool',
+        description: 'Denied tool',
+        inputSchema: { type: 'object', properties: {} },
+        execute: async () => ({ content: 'ok' }),
+      },
+    ], canUseTool);
     const result = await registry.executeTool('any_tool', {});
     assert.ok(result.isError, 'should return error');
     assert.ok(result.content.includes('not permitted'), 'should mention policy denial');

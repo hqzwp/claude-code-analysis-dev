@@ -81,7 +81,8 @@ const MAX_MEMORY_CONTEXT_CHARS = 1200;
 function persistTurn(session: SessionHistory, messages: ChatMessage[], rootDir?: string): SessionHistory | null {
   return appendMessages(session.meta.id, messages, { rootDir });
 }
-
+//从历史消息中构建memory 并且把用户prompt合并到一起
+//用户输入的prompt和最近4条历史消息合并到一起
 function buildMemoryQuery(prompt: string, messages: ChatMessage[]): string {
   const recentMessages = messages
     .filter((message) => message.role !== 'system')
@@ -90,7 +91,7 @@ function buildMemoryQuery(prompt: string, messages: ChatMessage[]): string {
 
   return [prompt, ...recentMessages].join('\n');
 }
-
+//根据历史消息和用户输入的prompt，在记忆中搜索可以匹配的MemoryEntry
 function selectMemoryEntries(prompt: string, messages: ChatMessage[], rootDir?: string) {
   const query = buildMemoryQuery(prompt, messages);
   const summaryMatches = searchMemorySummaries(query, { rootDir }).slice(0, MAX_MEMORY_ENTRIES);
@@ -101,8 +102,9 @@ function selectMemoryEntries(prompt: string, messages: ChatMessage[], rootDir?: 
   }
   return searchMemories(query, { rootDir }).slice(0, MAX_MEMORY_ENTRIES);
 }
-
+//使用用户输入的prompt和历史消息构建 记忆上下文
 function buildMemoryContext(prompt: string, messages: ChatMessage[], rootDir?: string): string {
+  //先获取知识库 
   const memories = selectMemoryEntries(prompt, messages, rootDir);
   if (memories.length === 0) {
     return '';
@@ -124,7 +126,7 @@ function buildMemoryContext(prompt: string, messages: ChatMessage[], rootDir?: s
 
   return `${context.slice(0, MAX_MEMORY_CONTEXT_CHARS).trimEnd()}\n[truncated]`;
 }
-
+//把记忆上下文合并到历史消息中
 function injectMemoryContext(messages: ChatMessage[], memoryContext: string): ChatMessage[] {
   if (!memoryContext) {
     return messages;

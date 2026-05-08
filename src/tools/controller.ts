@@ -1,5 +1,5 @@
 import type { TurnEvent } from '../query.js';
-import type { ToolRegistry } from './registry.js';
+import { resolveToolAccess, type ToolRegistry } from './registry.js';
 import type { ToolCallResult } from './types.js';
 
 export type ToolExecutionContext = {
@@ -8,34 +8,11 @@ export type ToolExecutionContext = {
   input: unknown;
 };
 
-type ToolAccessDecision =
-  | { allowed: true; reason: null }
-  | { allowed: false; reason: 'unknown_tool' | 'policy_denied'; content: string };
 
 export type ToolExecutionController = {
   getToolDefinitionsForApi: () => ReturnType<ToolRegistry['getToolDefinitionsForApi']>;
   executeTool: (context: ToolExecutionContext) => Promise<ToolCallResult>;
 };
-
-function resolveToolAccess(registry: ToolRegistry, toolName: string): ToolAccessDecision {
-  if (!registry.hasTool(toolName)) {
-    return {
-      allowed: false,
-      reason: 'unknown_tool',
-      content: `Unknown tool: ${toolName}`,
-    };
-  }
-
-  if (!registry.isToolAllowed(toolName)) {
-    return {
-      allowed: false,
-      reason: 'policy_denied',
-      content: `Tool ${toolName} is not permitted by policy.`,
-    };
-  }
-
-  return { allowed: true, reason: null };
-}
 
 export function createToolExecutionController(
   registry: ToolRegistry,
