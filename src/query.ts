@@ -14,16 +14,18 @@ export type ChatMessage = {
 export const DEFAULT_MODEL = 'qwen3.5-plus';
 const DEFAULT_MAX_TOOL_LOOPS = 6;
 
+///这里的 turn 是对话/Agent 里常用的说法，指 「一轮」：用户发出去之后，到模型这一轮回复（含中间可能多轮「要工具 → 执行工具 → 再请求模型」）整段过程里发生的事。
+//相对 user你输入的内容， assistant 是 模型生成的回复。
 export type TurnEvent =
-  | { kind: 'assistant_delta'; text: string }
+  | { kind: 'assistant_delta'; text: string } //模型测有新内容返回
   | { kind: 'tool_calls'; toolUses: Anthropic.ToolUseBlock[] }
-  | { kind: 'tool_policy_checked'; toolName: string; toolUseId: string; input: unknown; allowed: boolean }
+  | { kind: 'tool_policy_checked'; toolName: string; toolUseId: string; input: unknown; allowed: boolean; reason: 'unknown_tool' | 'policy_denied' | null }
   | { kind: 'tool_execution_started'; toolName: string; toolUseId: string; input: unknown }
   | { kind: 'tool_execution'; toolName: string; toolUseId: string; input: unknown; result: { content: string; isError?: boolean } }
   | { kind: 'tool_execution_finished'; toolName: string; toolUseId: string; input: unknown; result: { content: string; isError?: boolean } }
-  | { kind: 'tool_execution_denied'; toolName: string; toolUseId: string; input: unknown; result: { content: string; isError?: boolean } }
+  | { kind: 'tool_execution_denied'; toolName: string; toolUseId: string; input: unknown; reason: 'unknown_tool' | 'policy_denied'; result: { content: string; isError?: boolean } }
   | { kind: 'tool_execution_failed'; toolName: string; toolUseId: string; input: unknown; result: { content: string; isError?: boolean } }
-  | { kind: 'assistant_final'; text: string }
+  | { kind: 'assistant_final'; text: string } //模型测有返回结束
   | { kind: 'turn_error'; error: unknown };
 
 
@@ -93,7 +95,9 @@ export async function* submitMessage(history: ChatMessage[], options?: SubmitMes
   const logPath = options?.logPath?.trim() || options?.llmLogPath?.trim() || getDefaultLogPath();
   const toolRegistry =
     options?.toolRegistry ??
-    (options?.mcpToolSources ? await createToolRegistryFromSources(options.mcpToolSources) : createDefaultToolRegistry());
+    (options?.mcpToolSources
+      ? await createToolRegistryFromSources(options.mcpToolSources).catch(() => createDefaultToolRegistry())
+      : createDefaultToolRegistry());
   const runtimeConfig = readRuntimeConfig(options?.configPath);
   const { apiKey, authToken } = resolveAuth({ apiKey: options?.apiKey, authToken: options?.authToken }, runtimeConfig);
   const baseURL = normalizeCredential(options?.baseURL) ?? runtimeConfig.anthropicBaseUrl;

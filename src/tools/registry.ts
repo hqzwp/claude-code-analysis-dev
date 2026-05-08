@@ -17,6 +17,10 @@ export class ToolRegistry {
     this.tools.set(tool.name, tool);
   }
 
+  hasTool(name: string): boolean {
+    return this.tools.has(name);
+  }
+
   isToolAllowed(name: string): boolean {
     return !this.canUseTool || this.canUseTool(name);
   }

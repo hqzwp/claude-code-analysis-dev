@@ -8,10 +8,34 @@ export type ToolExecutionContext = {
   input: unknown;
 };
 
+type ToolAccessDecision =
+  | { allowed: true; reason: null }
+  | { allowed: false; reason: 'unknown_tool' | 'policy_denied'; content: string };
+
 export type ToolExecutionController = {
   getToolDefinitionsForApi: () => ReturnType<ToolRegistry['getToolDefinitionsForApi']>;
   executeTool: (context: ToolExecutionContext) => Promise<ToolCallResult>;
 };
+
+function resolveToolAccess(registry: ToolRegistry, toolName: string): ToolAccessDecision {
+  if (!registry.hasTool(toolName)) {
+    return {
+      allowed: false,
+      reason: 'unknown_tool',
+      content: `Unknown tool: ${toolName}`,
+    };
+  }
+
+  if (!registry.isToolAllowed(toolName)) {
+    return {
+      allowed: false,
+      reason: 'policy_denied',
+      content: `Tool ${toolName} is not permitted by policy.`,
+    };
+  }
+
+  return { allowed: true, reason: null };
+}
 
 export function createToolExecutionController(
   registry: ToolRegistry,
@@ -20,27 +44,28 @@ export function createToolExecutionController(
   return {
     getToolDefinitionsForApi: () => registry.getToolDefinitionsForApi(),
     executeTool: async ({ toolName, toolUseId, input }) => {
-      const allowed = registry.listToolNames().includes(toolName) && registry.isToolAllowed(toolName);
+      const decision = resolveToolAccess(registry, toolName);
 
-      const policyEvent: TurnEvent = {
+      emit?.({
         kind: 'tool_policy_checked',
         toolName,
         toolUseId,
         input,
-        allowed,
-      };
-      emit?.(policyEvent);
+        allowed: decision.allowed,
+        reason: decision.reason,
+      });
 
-      if (!allowed) {
+      if (!decision.allowed) {
         const result = {
           isError: true,
-          content: `Tool ${toolName} is not permitted by policy.`,
+          content: decision.content,
         };
         emit?.({
           kind: 'tool_execution_denied',
           toolName,
           toolUseId,
           input,
+          reason: decision.reason,
           result,
         });
         return result;

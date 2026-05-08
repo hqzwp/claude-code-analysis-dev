@@ -30,7 +30,7 @@ function normalizeFileStem(name: string): string {
 function getMemoryPath(name: string, rootDir?: string): string {
   return path.join(getMemoryDir(rootDir), `${normalizeFileStem(name)}.md`);
 }
-
+//TypeScript 的类型谓词（type predicate）：告诉编译器「当这个函数返回 true 时，可以把参数当成 Record<string, unknown>
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -123,7 +123,7 @@ function writeMemoryFile(entry: MemoryEntry, rootDir?: string): void {
 
   fs.writeFileSync(filePath, content, 'utf8');
 }
-
+//列出记忆文件
 function listMemoryFiles(rootDir?: string): string[] {
   const memoryDir = getMemoryDir(rootDir);
   if (!fs.existsSync(memoryDir)) {
@@ -141,7 +141,7 @@ export function writeMemory(entry: MemoryEntry, options: MemoryStoreOptions = {}
   writeMemoryFile(entry, options.rootDir);
   return entry;
 }
-
+//根据文件名读取记忆
 export function readMemory(name: string, options: MemoryStoreOptions = {}): MemoryEntry | null {
   const target = normalizeFileStem(name);
   const memoryFiles = listMemoryFiles(options.rootDir);
@@ -169,7 +169,19 @@ export function listMemories(options: MemoryStoreOptions = {}): MemorySummary[] 
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+//根据query在记忆中搜索  可以匹配的MemorySummary
+export function searchMemorySummaries(query: string, options: MemoryStoreOptions = {}): MemorySummary[] {
+  const needle = query.trim().toLowerCase();
+  if (needle.length === 0) {
+    return [];
+  }
 
+  return listMemories(options).filter((entry) => {
+    const haystack = `${entry.name}\n${entry.description}\n${entry.type}`.toLowerCase();
+    return haystack.includes(needle);
+  });
+}
+//根据query在记忆中搜索 可以匹配的MemoryEntry
 export function searchMemories(query: string, options: MemoryStoreOptions = {}): MemoryEntry[] {
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) {

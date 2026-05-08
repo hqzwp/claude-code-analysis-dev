@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { createStaticMcpToolSource, loadMcpTools } from '../src/tools/mcpSource.js';
+import { createMcpToolSource, createStaticMcpToolSource, loadMcpTools } from '../src/tools/mcpSource.js';
 import { createToolRegistryFromSources } from '../src/tools/index.js';
 
 describe('MCP tool source', () => {
@@ -17,6 +17,35 @@ describe('MCP tool source', () => {
     const tools = await loadMcpTools(source);
     assert.strictEqual(tools.length, 1);
     assert.strictEqual(tools[0].name, 'mcp_echo');
+  });
+
+  it('runs lifecycle hooks while loading tools', async () => {
+    const calls: string[] = [];
+    const source = createMcpToolSource(
+      async () => {
+        calls.push('load');
+        return [
+          {
+            name: 'mcp_echo',
+            description: 'Echo text',
+            inputSchema: { type: 'object', properties: {} },
+            execute: async () => ({ content: 'ok' }),
+          },
+        ];
+      },
+      {
+        init: () => {
+          calls.push('init');
+        },
+        dispose: () => {
+          calls.push('dispose');
+        },
+      },
+    );
+
+    const tools = await loadMcpTools(source);
+    assert.strictEqual(tools.length, 1);
+    assert.deepStrictEqual(calls, ['init', 'load', 'dispose']);
   });
 
   it('creates a registry from multiple sources', async () => {

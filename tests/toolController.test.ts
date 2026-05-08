@@ -32,6 +32,7 @@ describe('createToolExecutionController', () => {
         toolUseId: 'tool-1',
         input: { value: 'hi' },
         allowed: true,
+        reason: null,
       },
       {
         kind: 'tool_execution_started',
@@ -49,16 +50,63 @@ describe('createToolExecutionController', () => {
     ]);
   });
 
+  it('emits denial events for unknown tools', async () => {
+    const events: unknown[] = [];
+    const registry = new ToolRegistry([]);
+    const controller = createToolExecutionController(registry, (event) => {
+      events.push(event);
+    });
+
+    const result = await controller.executeTool({
+      toolName: 'missing',
+      toolUseId: 'tool-2',
+      input: { value: 'nope' },
+    });
+
+    assert.deepStrictEqual(result, {
+      isError: true,
+      content: 'Unknown tool: missing',
+    });
+    assert.deepStrictEqual(events, [
+      {
+        kind: 'tool_policy_checked',
+        toolName: 'missing',
+        toolUseId: 'tool-2',
+        input: { value: 'nope' },
+        allowed: false,
+        reason: 'unknown_tool',
+      },
+      {
+        kind: 'tool_execution_denied',
+        toolName: 'missing',
+        toolUseId: 'tool-2',
+        input: { value: 'nope' },
+        reason: 'unknown_tool',
+        result: {
+          isError: true,
+          content: 'Unknown tool: missing',
+        },
+      },
+    ]);
+  });
+
   it('emits denial events for blocked tools', async () => {
     const events: unknown[] = [];
-    const registry = new ToolRegistry([], () => false);
+    const registry = new ToolRegistry([
+      {
+        name: 'blocked',
+        description: 'Blocked tool',
+        inputSchema: { type: 'object', properties: {} },
+        execute: async () => ({ content: 'ok' }),
+      },
+    ], () => false);
     const controller = createToolExecutionController(registry, (event) => {
       events.push(event);
     });
 
     const result = await controller.executeTool({
       toolName: 'blocked',
-      toolUseId: 'tool-2',
+      toolUseId: 'tool-3',
       input: { value: 'nope' },
     });
 
@@ -70,15 +118,17 @@ describe('createToolExecutionController', () => {
       {
         kind: 'tool_policy_checked',
         toolName: 'blocked',
-        toolUseId: 'tool-2',
+        toolUseId: 'tool-3',
         input: { value: 'nope' },
         allowed: false,
+        reason: 'policy_denied',
       },
       {
         kind: 'tool_execution_denied',
         toolName: 'blocked',
-        toolUseId: 'tool-2',
+        toolUseId: 'tool-3',
         input: { value: 'nope' },
+        reason: 'policy_denied',
         result: {
           isError: true,
           content: 'Tool blocked is not permitted by policy.',
@@ -103,7 +153,7 @@ describe('createToolExecutionController', () => {
 
     const result = await controller.executeTool({
       toolName: 'broken',
-      toolUseId: 'tool-3',
+      toolUseId: 'tool-4',
       input: { value: 'x' },
     });
 
@@ -112,20 +162,21 @@ describe('createToolExecutionController', () => {
       {
         kind: 'tool_policy_checked',
         toolName: 'broken',
-        toolUseId: 'tool-3',
+        toolUseId: 'tool-4',
         input: { value: 'x' },
         allowed: true,
+        reason: null,
       },
       {
         kind: 'tool_execution_started',
         toolName: 'broken',
-        toolUseId: 'tool-3',
+        toolUseId: 'tool-4',
         input: { value: 'x' },
       },
       {
         kind: 'tool_execution_failed',
         toolName: 'broken',
-        toolUseId: 'tool-3',
+        toolUseId: 'tool-4',
         input: { value: 'x' },
         result: { content: 'bad', isError: true },
       },

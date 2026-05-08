@@ -1,6 +1,12 @@
 import type { CommandContext } from '../commands/index.js';
 import { dispatchCommand } from '../commands/index.js';
-import { searchMemories } from '../memory/index.js';
+import {
+  readMemory,
+  searchMemorySummaries,
+  searchMemories,
+  type MemoryEntry,
+  type MemorySummary,
+} from '../memory/index.js';
 import { createSession, createOrLoadCurrentSession, appendMessages, type SessionHistory } from '../history/index.js';
 import { logDebug } from '../log.js';
 import { submitMessage, type ChatMessage, type TurnEvent } from '../query.js';
@@ -71,7 +77,7 @@ export type QueryRuntime = {
 
 const MAX_MEMORY_ENTRIES = 2;
 const MAX_MEMORY_CONTEXT_CHARS = 1200;
-
+//保存一轮对话（user messages    assistant messages）到历史记录中
 function persistTurn(session: SessionHistory, messages: ChatMessage[], rootDir?: string): SessionHistory | null {
   return appendMessages(session.meta.id, messages, { rootDir });
 }
@@ -85,8 +91,19 @@ function buildMemoryQuery(prompt: string, messages: ChatMessage[]): string {
   return [prompt, ...recentMessages].join('\n');
 }
 
+function selectMemoryEntries(prompt: string, messages: ChatMessage[], rootDir?: string) {
+  const query = buildMemoryQuery(prompt, messages);
+  const summaryMatches = searchMemorySummaries(query, { rootDir }).slice(0, MAX_MEMORY_ENTRIES);
+  if (summaryMatches.length > 0) {
+    return summaryMatches
+      .map((summary: MemorySummary) => readMemory(summary.name, { rootDir }))
+      .filter((entry: MemoryEntry | null): entry is MemoryEntry => entry !== null);
+  }
+  return searchMemories(query, { rootDir }).slice(0, MAX_MEMORY_ENTRIES);
+}
+
 function buildMemoryContext(prompt: string, messages: ChatMessage[], rootDir?: string): string {
-  const memories = searchMemories(buildMemoryQuery(prompt, messages), { rootDir }).slice(0, MAX_MEMORY_ENTRIES);
+  const memories = selectMemoryEntries(prompt, messages, rootDir);
   if (memories.length === 0) {
     return '';
   }
@@ -124,8 +141,8 @@ function injectMemoryContext(messages: ChatMessage[], memoryContext: string): Ch
     }
 
     return {
-      ...message,
-      text: `${message.text}\n\n${memoryContext}`,
+      ...message, //// 先拷贝原来的所有字段（role, text 等）
+      text: `${message.text}\n\n${memoryContext}`,// 再覆盖 text，把 memoryContext 拼到原 system prompt 后面
     };
   });
 }
@@ -262,7 +279,7 @@ export class QueryEngine {
 
     return { kind: 'submit_prompt', prompt: trimmed, source: 'raw' };
   }
-
+ //处理runtime事件
   private publish(event: RuntimeEvent): void {
     this.eventBus.publish(event);
   }
@@ -275,7 +292,7 @@ export class QueryEngine {
     this.store.hydrateSession(freshSession);
     this.publish({ kind: 'conversation_reset', sessionId: freshSession.meta.id });
   }
-
+//处理turn(模型一轮对话)事件 
   private handleTurnEvent(event: TurnEvent): void {
     this.publish({ kind: 'turn_event', event });
     if (event.kind === 'turn_error') {
@@ -283,8 +300,6 @@ export class QueryEngine {
       this.store.setLastError(errorMessage);
     }
   }
-
-
   private async appendAssistantReply(userText: string, assistantText: string): Promise<void> {
     const state = this.store.getSnapshot();
     const userMessage: ChatMessage = { role: 'user', text: userText };

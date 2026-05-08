@@ -7,6 +7,7 @@ import {
   listMemories,
   readMemory,
   searchMemories,
+  searchMemorySummaries,
   writeMemory,
 } from '../src/memory/index.js';
 
@@ -59,6 +60,10 @@ describe('memory store', () => {
       memories.map((entry) => entry.name).sort(),
       ['Agent Focus', 'Bridge Notes'],
     );
+
+    const summaries = searchMemorySummaries('agent', { rootDir });
+    assert.strictEqual(summaries.length, 1);
+    assert.strictEqual(summaries[0].name, 'Agent Focus');
 
     const results = searchMemories('agent', { rootDir });
     assert.strictEqual(results.length, 1);
