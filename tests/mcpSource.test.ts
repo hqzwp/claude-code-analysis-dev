@@ -71,7 +71,7 @@ describe('MCP tool source', () => {
       }),
       createStaticMcpToolSource([
         {
-          name: 'mcp_echo',
+          name: 'echo',
           description: 'Echo text',
           inputSchema: { type: 'object', properties: {} },
           execute: async () => ({ content: 'ok' }),
@@ -79,12 +79,30 @@ describe('MCP tool source', () => {
       ]),
     ]);
 
-    const result = await registry.executeTool('mcp_echo', {});
+    const result = await registry.executeTool('mcp_2__echo', {});
     assert.strictEqual(result.content, 'ok');
   });
 
+  it('keeps MCP metadata on registered tools', async () => {
+    const registry = await createToolRegistryFromSources([
+      createStaticMcpToolSource([
+        {
+          name: 'echo',
+          description: 'Echo text',
+          inputSchema: { type: 'object', properties: {} },
+          execute: async () => ({ content: 'ok' }),
+        },
+      ]),
+    ]);
 
+    const tool = registry.listRegisteredTools().find((entry) => entry.name === 'mcp_1__echo');
+    assert.ok(tool);
+    assert.strictEqual(tool?.mcpToolName, 'echo');
+    assert.strictEqual(tool?.mcpSourceIndex, 0);
 
-
-
+    const apiTool = registry.getToolDefinitionsForApi().find((entry) => entry.name === 'mcp_1__echo');
+    assert.ok(apiTool);
+    assert.match(apiTool?.description ?? '', /MCP: echo/);
+    assert.match(apiTool?.description ?? '', /source #1/);
+  });
 });

@@ -5,6 +5,8 @@ export type ToolAccessDecision =
   | { allowed: true; reason: null }
   | { allowed: false; reason: 'unknown_tool' | 'policy_denied'; content: string };
 
+export type RegisteredToolInfo = Pick<ToolDefinition, 'name' | 'description' | 'inputSchema' | 'mcpToolName' | 'mcpSourceIndex'>;
+
 export function resolveToolAccess(registry: ToolRegistry, toolName: string): ToolAccessDecision {
   if (!registry.hasTool(toolName)) {
     return {
@@ -52,12 +54,25 @@ export class ToolRegistry {
   getToolDefinitionsForApi(): ApiToolDefinition[] {
     // Filter by permission policy if available
     return Array.from(this.tools.values())
-      .filter(tool => this.isToolAllowed(tool.name))
+      .filter((tool) => this.isToolAllowed(tool.name))
       .map((tool) => ({
         name: tool.name,
-        description: tool.description,
+        description:
+          tool.mcpToolName && tool.mcpSourceIndex !== undefined
+            ? `${tool.description} (MCP: ${tool.mcpToolName}, source #${tool.mcpSourceIndex + 1})`
+            : tool.description,
         input_schema: tool.inputSchema,
       }));
+  }
+
+  listRegisteredTools(): RegisteredToolInfo[] {
+    return Array.from(this.tools.values()).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      mcpToolName: tool.mcpToolName,
+      mcpSourceIndex: tool.mcpSourceIndex,
+    }));
   }
 
   async executeTool(name: string, input: unknown): Promise<ToolCallResult> {
